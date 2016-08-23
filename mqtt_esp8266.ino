@@ -35,7 +35,8 @@ char ssid[32] = "";
 char password[32] = "";
 const char* mqtt_server = "www.test.yaktor";
 
-const char *softAP_ssid = "ESP_ap";
+const char *softAP_ssidFmt = "ESP_%d";
+char softAP_ssid[64];
 const char *softAP_password = "12345678";
 
 IPAddress dns(172, 18, 0, 2);
@@ -63,9 +64,9 @@ int BACK_OFF = 1;
 Ticker beeper;
 Ticker blinker;
 
-
 /** Should I connect to WLAN asap? */
 boolean connect;
+boolean connected = false;
 
 /** Last time I tried to connect to WLAN */
 long lastConnectTry = 0;
@@ -79,6 +80,7 @@ void setup() {
   Serial.print("Configuring access point...");
 
   /* You can remove the password parameter if you want the AP to be open. */
+  sprintf(softAP_ssid,softAP_ssidFmt,id);
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP(softAP_ssid, softAP_password);
   delay(500); // Without delay I've seen the IP address blank
@@ -92,8 +94,7 @@ void setup() {
   pinMode(BLUE_LED, OUTPUT);
   pinMode(0, INPUT);
   digitalWrite(BLUE_LED, HIGH);
-  digitalWrite(BUILTIN_LED, HIGH);
-  //pinMode(0, INPUT_PULLUP);
+  digitalWrite(BUILTIN_LED, LOW);
   attachInterrupt(digitalPinToInterrupt(0), buttonPushed, RISING);
 }
 void setup_server() {
@@ -155,6 +156,7 @@ void setup_wifi() {
     delay(500);
     Serial.print(".");
   }
+  connected = true;
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
@@ -166,7 +168,7 @@ void reconnect() {
 //  while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266Client")) {
+    if (client.connect(softAP_ssid)) {
       BACK_OFF = 1;
       Serial.println("connected");
       // Once connected, publish an announcement...
@@ -196,11 +198,11 @@ void loop() {
     client.setServer(mqtt_server, 80);
     client.setCallback(callback);
   }
-  if (WiFi.status() == WL_CONNECTED && !client.connected()) {
+  if (connected && !client.connected()) {
     reconnect();
-    digitalWrite(BUILTIN_LED, HIGH);
-  } else {
     digitalWrite(BUILTIN_LED, LOW);
+  } else {
+    digitalWrite(BUILTIN_LED, HIGH);
     if (buttoned == 1) {
       buttoned = 2;
       char json[255];
@@ -246,7 +248,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   } else {
     beeper.detach();
     blinker.detach();
-    noTone(8);
+    noTone(BUZZER_PIN);
     digitalWrite(BLUE_LED, HIGH);  // Turn the LED off by making the voltage HIGH
   }
 

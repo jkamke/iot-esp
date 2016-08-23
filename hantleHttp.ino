@@ -1,7 +1,9 @@
-const char* serverIndex = "<div><a href='/wifi'>set up wifi</a></div><form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+const char* serverIndexFmt = "<div> Device ID: %d</div> <div><a href='/wifi'>set up wifi</a></div><form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+char serverIndex[255];
 
 /** Handle root or redirect to captive portal */
 void handleRoot() {
+  sprintf(serverIndex, serverIndexFmt, id);
   server.sendHeader("Connection", "close");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", serverIndex);
