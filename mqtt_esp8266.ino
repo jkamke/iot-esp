@@ -46,8 +46,9 @@ IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
 ESP8266WebServer server(80);
+int id = ESP.getChipId();
 
-const char* sub = "demo.Outlet/state/+/1";
+const char* sub = "demo.Outlet/state/+/%d";
 const int BLUE_LED = 2;
 const int BACK_OFF_MAX = 30;
 const int BUZZER_PIN = 13;
@@ -81,6 +82,7 @@ void setup() {
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP(softAP_ssid, softAP_password);
   delay(500); // Without delay I've seen the IP address blank
+  Serial.printf("ESP id: %d\n",id);
   Serial.print("AP IP address: ");
   Serial.println(WiFi.softAPIP());
 
@@ -170,7 +172,10 @@ void reconnect() {
       // Once connected, publish an announcement...
       //client.publish("outTopic", "hello world");
       // ... and resubscribe
-      client.subscribe(sub);
+      char subId[255];
+      sprintf(subId, sub, id);
+      
+      client.subscribe(subId);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -199,7 +204,7 @@ void loop() {
     if (buttoned == 1) {
       buttoned = 2;
       char json[255];
-      sprintf(json, "{\"agentData\": {\"_id\": \"1\"}, \"data\": {\"volts\": %d}}", ESP.getVcc());
+      sprintf(json, "{\"agentData\": {\"_id\": %d}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
       client.publish("demo.Switch/flip", json);
       buttoned = 0;
     }
@@ -216,7 +221,7 @@ void buttonPushed() {
 
 }
 void beep () {
-  tone(BUZZER_PIN, 250, 250);
+  tone(BUZZER_PIN, 2000, 250);
 }
 void blink_it () {
   int state = digitalRead(BLUE_LED);

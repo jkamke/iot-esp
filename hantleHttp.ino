@@ -44,7 +44,7 @@ void handleWifi() {
   Serial.println("scan done");
   if (n > 0) {
     for (int i = 0; i < n; i++) {
-      server.sendContent(String() + "\r\n<tr><td>SSID " + WiFi.SSID(i) + String((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":" *") + " (" + WiFi.RSSI(i) + ")</td></tr>");
+      server.sendContent(String() + "\r\n<tr><td>SSID <button value=\""+WiFi.SSID(i)+"\" onclick='document.getElementById(\"sid\").value=this.value' >" + WiFi.SSID(i)+"</button>" + String((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":" *") + " (" + WiFi.RSSI(i) + ")</td></tr>");
     }
   } else {
     server.sendContent(String() + "<tr><td>No WLAN found</td></tr>");
@@ -52,7 +52,7 @@ void handleWifi() {
   server.sendContent(
     "</table>"
     "\r\n<br /><form method='POST' action='wifisave'><h4>Connect to network:</h4>"
-    "<input type='text' placeholder='network' name='n'/>"
+    "<input type='text' placeholder='network' id='sid' name='n'/>"
     "<br /><input type='password' placeholder='password' name='p'/>"
     "<br /><input type='submit' value='Connect/Disconnect'/></form>"
     "<p>You may want to <a href='/'>return to the home page</a>.</p>"
