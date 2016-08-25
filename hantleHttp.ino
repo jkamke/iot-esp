@@ -54,8 +54,12 @@ void handleWifi() {
   server.sendContent(
     "</table>"
     "\r\n<br /><form method='POST' action='wifisave'><h4>Connect to network:</h4>"
-    "<input type='text' placeholder='network' id='sid' name='n'/>"
+    "<label><input type='checkbox' name='u'/>Update IP Settings</label>"
+    "<br /><input type='text' placeholder='network' id='sid' name='n'/>"
     "<br /><input type='password' placeholder='password' name='p'/>"
+    "<br /><input type='text' placeholder='gateway' name='g'/>"
+    "<br /><input type='text' placeholder='dns' name='d'/>"
+    "<br />App Settings:<br /><input type='text' placeholder='MQTT server' name='m'/>"
     "<br /><input type='submit' value='Connect/Disconnect'/></form>"
     "<p>You may want to <a href='/'>return to the home page</a>.</p>"
     "</body></html>"
@@ -68,15 +72,22 @@ void handleWifi() {
 /** Handle the WLAN save form and redirect to WLAN config page again */
 void handleWifiSave() {
   Serial.println("wifi save");
-  server.arg("n").toCharArray(ssid, sizeof(ssid) - 1);
-  server.arg("p").toCharArray(password, sizeof(password) - 1);
+  if(server.hasArg("u")) {
+    server.arg("n").toCharArray(ssid, sizeof(ssid) - 1);
+    server.arg("p").toCharArray(password, sizeof(password) - 1);
+    server.arg("g").toCharArray(gateway, sizeof(gateway) - 1);
+    server.arg("d").toCharArray(dns, sizeof(dns) - 1);
+  }
+  if(server.arg("m").length()>0) {
+     server.arg("m").toCharArray(mqtt_server, sizeof(mqtt_server) - 1);
+  }
   server.sendHeader("Location", "wifi", true);
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   server.sendHeader("Pragma", "no-cache");
   server.sendHeader("Expires", "-1");
   server.send ( 302, "text/plain", "");  // Empty content inhibits Content-length header so we have to close the socket ourselves.
   server.client().stop(); // Stop is needed because we sent no content length
-  saveCredentials();
+  saveSettings();
   connect = strlen(ssid) > 0; // Request WLAN connect with new credentials if there is a SSID
 }
 

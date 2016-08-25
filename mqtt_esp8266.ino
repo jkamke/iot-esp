@@ -31,17 +31,19 @@
 #include <EEPROM.h>
 ADC_MODE(ADC_VCC);
 
+//160bytest left in EEPROM(512)
 char ssid[32] = "";
 char password[32] = "";
-const char* mqtt_server = "www.test.yaktor";
+char gateway[16] = "";
+char dns[16] = "";
+char mqtt_server[256] = "";
 
 const char *softAP_ssidFmt = "ESP_%d";
 char softAP_ssid[64];
 const char *softAP_password = "12345678";
 
-IPAddress dns(172, 18, 0, 2);
-IPAddress gateway(10, 0, 1, 5);
-IPAddress subnet(255, 255, 255, 0);
+IPAddress dnsIPaddr;
+IPAddress gatewayIPaddr;
 
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
@@ -88,7 +90,7 @@ void setup() {
   Serial.print("AP IP address: ");
   Serial.println(WiFi.softAPIP());
 
-  loadCredentials(); // Load WLAN credentials from network
+  loadSettings(); // Load WLAN credentials from network
   connect = strlen(ssid) > 0; // Request WLAN connect if there is a SSID
   setup_server();
   pinMode(BLUE_LED, OUTPUT);
@@ -144,6 +146,7 @@ void setup_wifi() {
   // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
+  Serial.printf("sidd: %s\n", ssid);
   Serial.println(ssid);
   WiFi.disconnect();
   WiFi.begin(ssid, password);
@@ -151,21 +154,31 @@ void setup_wifi() {
     delay(500);
     Serial.print(".");
   }
-  WiFi.config(WiFi.localIP(), gateway, subnet, dns);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  if(strlen(gateway) > 0) {
+    gatewayIPaddr.fromString(gateway);
+    dnsIPaddr.fromString(dns);
+    Serial.printf("gateway: %s\n", gatewayIPaddr.toString().c_str());
+    Serial.printf("dns: %s\n", dnsIPaddr.toString().c_str());
+    Serial.printf("subnet: %s\n", WiFi.subnetMask().toString().c_str());
+    WiFi.config(WiFi.localIP(), gatewayIPaddr, WiFi.subnetMask(), dnsIPaddr);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
   }
   connected = true;
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  //MQTT setup
+  client.setCallback(onClientMessage);
 }
 
 void reconnect() {
   // Loop until we're reconnected
 //  while (!client.connected()) {
+    client.setServer(mqtt_server, 80);
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect(softAP_ssid)) {
@@ -174,10 +187,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       //client.publish("outTopic", "hello world");
       // ... and resubscribe
-      char subId[255];
-      sprintf(subId, sub, id);
-      
-      client.subscribe(subId);
+      onClientConnect();
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -195,8 +205,6 @@ void loop() {
   if (connect) {
     connect = false;
     setup_wifi();
-    client.setServer(mqtt_server, 80);
-    client.setCallback(callback);
   }
   if (connected && !client.connected()) {
     reconnect();
@@ -205,9 +213,7 @@ void loop() {
     digitalWrite(BUILTIN_LED, HIGH);
     if (buttoned == 1) {
       buttoned = 2;
-      char json[255];
-      sprintf(json, "{\"agentData\": {\"_id\": %d}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
-      client.publish("demo.Switch/flip", json);
+      onButtonPushed();
       buttoned = 0;
     }
   }
@@ -229,7 +235,21 @@ void blink_it () {
   int state = digitalRead(BLUE_LED);
   digitalWrite(BLUE_LED, !state);
 }
-void callback(char* topic, byte* payload, unsigned int length) {
+
+// START APP CODE
+void onButtonPushed(){
+  char json[255];
+  sprintf(json, "{\"agentData\": {\"_id\": %d}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
+  client.publish("demo.Switch/flip", json);
+}
+
+void onClientConnect() {
+  char subId[255];
+  sprintf(subId, sub, id);
+  client.subscribe(subId);
+}
+
+void onClientMessage(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -242,14 +262,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (topic[18] == 'f') {
     beeper.attach(.5, beep);
     blinker.attach(.2, blink_it);
-    // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
   } else {
     beeper.detach();
     blinker.detach();
     noTone(BUZZER_PIN);
     digitalWrite(BLUE_LED, HIGH);  // Turn the LED off by making the voltage HIGH
   }
-
 }
