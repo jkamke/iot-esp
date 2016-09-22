@@ -22,7 +22,7 @@
   - Select your ESP8266 in "Tools -> Board"
 
 */
-
+#define IP_FORWARD 1
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <Ticker.h>
@@ -55,6 +55,7 @@ const char* sub = "demo.Outlet/state/+/%d";
 const int BLUE_LED = 2;
 const int BACK_OFF_MAX = 30;
 const int BUZZER_PIN = 13;
+const int BUTTON_PIN = 4;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -94,10 +95,10 @@ void setup() {
   connect = strlen(ssid) > 0; // Request WLAN connect if there is a SSID
   setup_server();
   pinMode(BLUE_LED, OUTPUT);
-  pinMode(0, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   digitalWrite(BLUE_LED, HIGH);
   digitalWrite(BUILTIN_LED, LOW);
-  attachInterrupt(digitalPinToInterrupt(0), buttonPushed, RISING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonPushed, RISING);
 }
 void setup_server() {
 
@@ -141,7 +142,7 @@ void setup_server() {
 
 }
 void setup_wifi() {
-
+  int i = 0;
   delay(10);
   // We start by connecting to a WiFi network
   Serial.println();
@@ -150,11 +151,11 @@ void setup_wifi() {
   Serial.println(ssid);
   WiFi.disconnect();
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED && i++ < 20) {
     delay(500);
     Serial.print(".");
   }
-  if(strlen(gateway) > 0) {
+  if(WiFi.status() == WL_CONNECTED && strlen(gateway) > 0) {
     gatewayIPaddr.fromString(gateway);
     dnsIPaddr.fromString(dns);
     Serial.printf("gateway: %s\n", gatewayIPaddr.toString().c_str());
@@ -206,7 +207,7 @@ void loop() {
     connect = false;
     setup_wifi();
   }
-  if (connected && !client.connected()) {
+  if (WiFi.status() == WL_CONNECTED && !client.connected()) {
     reconnect();
     digitalWrite(BUILTIN_LED, LOW);
   } else {
@@ -229,7 +230,7 @@ void buttonPushed() {
 
 }
 void beep () {
-  tone(BUZZER_PIN, 2000, 250);
+  tone(BUZZER_PIN, 3000, 250);
 }
 void blink_it () {
   int state = digitalRead(BLUE_LED);
