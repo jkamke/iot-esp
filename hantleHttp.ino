@@ -51,16 +51,17 @@ void handleWifi() {
   } else {
     server.sendContent(String() + "<tr><td>No WLAN found</td></tr>");
   }
-  server.sendContent(
+  server.sendContent(String() +
     "</table>"
     "\r\n<br /><form method='POST' action='wifisave'><h4>Connect to network:</h4>"
-    "<label><input type='checkbox' name='u'/>Update IP Settings</label>"
-    "<br /><input type='text' placeholder='network' id='sid' name='n'/>"
+    "<br /><label><input type='checkbox' name='w'/>Update wifi Settings:</label>"
+    "<br /><input type='text' placeholder='network' id='sid' name='n' value=\""+ssid+"\"/>"
     "<br /><input type='password' placeholder='password' name='p'/>"
-    "<br /><input type='text' placeholder='gateway' name='g'/>"
-    "<br /><input type='text' placeholder='dns' name='d'/>"
-    "<br />App Settings:<br /><input type='text' placeholder='MQTT server' name='m'/>"
-    "<br /><input type='submit' value='Connect/Disconnect'/></form>"
+    "<br /><label><input type='checkbox' name='a'/>Update advanced Settings:</label>"
+    "<br /><input type='text' placeholder='gateway' name='g' value='"+gateway+"'/>"
+    "<br /><input type='text' placeholder='dns' name='d' value='"+dns+"'/>"
+    "<br />App Settings:<br /><input type='text' placeholder='MQTT server' name='m'  value='"+mqtt_server+"'/>"
+    "<br /><input type='submit' value='Connect/Update'/></form>"
     "<p>You may want to <a href='/'>return to the home page</a>.</p>"
     "</body></html>"
   );
@@ -72,12 +73,17 @@ void handleWifi() {
 /** Handle the WLAN save form and redirect to WLAN config page again */
 void handleWifiSave() {
   Serial.println("wifi save");
-  if(server.hasArg("u")) {
+  // update wifi
+  if(server.hasArg("w")) {
     server.arg("n").toCharArray(ssid, sizeof(ssid) - 1);
     server.arg("p").toCharArray(password, sizeof(password) - 1);
+  }
+  // update advanced
+  if(server.hasArg("a")) {
     server.arg("g").toCharArray(gateway, sizeof(gateway) - 1);
     server.arg("d").toCharArray(dns, sizeof(dns) - 1);
   }
+  // only update server if specified
   if(server.arg("m").length()>0) {
      server.arg("m").toCharArray(mqtt_server, sizeof(mqtt_server) - 1);
   }
