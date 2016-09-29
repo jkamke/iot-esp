@@ -29,6 +29,9 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
+extern "C" {
+#include "user_interface.h" 
+}
 ADC_MODE(ADC_VCC);
 
 //160bytest left in EEPROM(512)
@@ -53,8 +56,9 @@ int id = ESP.getChipId();
 
 const char* sub = "demo.Outlet/state/+/%d";
 const int BLUE_LED = 2;
+const int GREEN_LED = 13;
 const int BACK_OFF_MAX = 30;
-const int BUZZER_PIN = 13;
+const int BUZZER_PIN = 14;
 const int BUTTON_PIN = 4;
 
 WiFiClient espClient;
@@ -95,8 +99,10 @@ void setup() {
   connect = strlen(ssid) > 0; // Request WLAN connect if there is a SSID
   setup_server();
   pinMode(BLUE_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   digitalWrite(BLUE_LED, HIGH);
+  digitalWrite(GREEN_LED, HIGH);
   digitalWrite(BUILTIN_LED, LOW);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonPushed, RISING);
 }
@@ -189,16 +195,16 @@ void reconnect() {
       //client.publish("outTopic", "hello world");
       // ... and resubscribe
       onClientConnect();
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      if (BACK_OFF > BACK_OFF_MAX) {
-        BACK_OFF = BACK_OFF_MAX;
-      }
-      int dd = 200 * BACK_OFF++;
-      Serial.printf(" try again in %i milli.\n", dd);
-      // Wait delay seconds before retrying
-      delay(dd);
+//    } else {
+//      Serial.print("failed, rc=");
+//      Serial.print(client.state());
+//      if (BACK_OFF > BACK_OFF_MAX) {
+//        BACK_OFF = BACK_OFF_MAX;
+//      }
+//      int dd = 200 * BACK_OFF++;
+//      Serial.printf(" try again in %i milli.\n", dd);
+//      // Wait delay seconds before retrying
+//      delay(dd);
     }
 //  }
 }
@@ -210,8 +216,10 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED && !client.connected()) {
     reconnect();
     digitalWrite(BUILTIN_LED, LOW);
+    digitalWrite(GREEN_LED, HIGH);
   } else {
     digitalWrite(BUILTIN_LED, HIGH);
+    digitalWrite(GREEN_LED, LOW);
     if (buttoned == 1) {
       buttoned = 2;
       onButtonPushed();
@@ -267,6 +275,6 @@ void onClientMessage(char* topic, byte* payload, unsigned int length) {
     beeper.detach();
     blinker.detach();
     noTone(BUZZER_PIN);
-    digitalWrite(BLUE_LED, HIGH);  // Turn the LED off by making the voltage HIGH
+    digitalWrite(BLUE_LED, HIGH); // Turn the LED off by making the voltage HIGH
   }
 }
