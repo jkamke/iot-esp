@@ -38,7 +38,7 @@ char gateway[16] = "";
 char dns[16] = "";
 char mqtt_server[256] = "";
 
-const char *softAP_ssidFmt = "ESP_%d";
+const char *softAP_ssidFmt = "ESP_%2X";
 char softAP_ssid[64];
 const char *softAP_password = "12345678";
 
@@ -51,7 +51,7 @@ IPAddress netMsk(255, 255, 255, 0);
 ESP8266WebServer server(80);
 int id = ESP.getChipId();
 
-const char* sub = "demo.Outlet/state/+/%d";
+const char* sub = "demo.Outlet/state/+/%2X";
 const int BLUE_LED = 2;
 const int BACK_OFF_MAX = 30;
 const int BUZZER_PIN = 13;
@@ -148,7 +148,6 @@ void setup_wifi() {
   Serial.println();
   Serial.print("Connecting to ");
   Serial.printf("sidd: %s\n", ssid);
-  Serial.println(ssid);
   WiFi.disconnect();
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED && i++ < 20) {
@@ -240,7 +239,7 @@ void blink_it () {
 // START APP CODE
 void onButtonPushed(){
   char json[255];
-  sprintf(json, "{\"agentData\": {\"_id\": %d}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
+  sprintf(json, "{\"agentData\": {\"_id\": \"%2X\"}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
   client.publish("demo.Switch/flip", json);
 }
 
