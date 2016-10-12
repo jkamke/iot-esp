@@ -1,14 +1,50 @@
-const char* serverIndexFmt = "<div> Device ID: %d</div> <div><a href='/wifi'>set up wifi</a></div><form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+const char* serverIndexFmt = "<div> Device ID: %s</div> <div><a href='/wifi'>set up wifi</a></div><div><a href='/code'>print label</a></div><form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 char serverIndex[255];
 
 /** Handle root or redirect to captive portal */
 void handleRoot() {
-  sprintf(serverIndex, serverIndexFmt, id);
+  sprintf(serverIndex, serverIndexFmt, cid);
   server.sendHeader("Connection", "close");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", serverIndex);
 }
-
+void handleCode() {
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "-1");
+  server.sendContent(
+    "<html>"
+    "<head>"
+    "<style type='text/css'>"
+    "@media print {"
+    "  @page {"
+    "    size: 3cm 3.5cm;"
+    "    margin: 0cm;"
+    "  }"
+    "}"
+    "body {"
+    "  margin: 0cm;"
+    "}"
+    ".code {"
+    "  text-align: center; width:3cm; height:.4cm;"
+    "}"
+    "</style>"
+    "<script type='text/javascript' src='qrcode.js'></script>"
+    "<script type='text/javascript' src='html5-qrcode.js'></script>"
+    "</head><body>"
+    "<div class='code'>" +String(cid) + "</div>"
+    "<div id='qrcode'></div>"
+    "<script type='text/javascript'>"
+    "var text = '"+String(cid)+"';"
+    "var code = showQRCode(text, 1, 'H');"
+    "var element = document.getElementById('qrcode');"
+    "if(element.lastChild) {"
+    "  element.replaceChild(code, element.lastChild);"
+    "} else {"
+    "  element.appendChild(code);"
+    "}"
+    "</script></body></html>");
+}
 /** Wifi config page handler */
 void handleWifi() {
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -95,6 +131,42 @@ void handleWifiSave() {
   server.client().stop(); // Stop is needed because we sent no content length
   saveSettings();
   connect = strlen(ssid) > 0; // Request WLAN connect with new credentials if there is a SSID
+}
+
+bool handleFileRead(String path){
+  SPIFFS.begin();
+  handleFileReadInt(path);
+  SPIFFS.end();
+}
+bool handleFileReadInt(String path){
+  Serial.println("handleFileRead: " + path);
+  String contentType = getContentType(path);
+  String pathWithGz = path + ".gz";
+  if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
+    if(SPIFFS.exists(pathWithGz))
+      path += ".gz";
+    File file = SPIFFS.open(path, "r");
+    size_t sent = server.streamFile(file, contentType);
+    file.close();
+    return true;
+  }
+  return false;
+}
+String getContentType(String filename){
+  if(server.hasArg("download")) return "application/octet-stream";
+  else if(filename.endsWith(".htm")) return "text/html";
+  else if(filename.endsWith(".html")) return "text/html";
+  else if(filename.endsWith(".css")) return "text/css";
+  else if(filename.endsWith(".js")) return "application/javascript";
+  else if(filename.endsWith(".png")) return "image/png";
+  else if(filename.endsWith(".gif")) return "image/gif";
+  else if(filename.endsWith(".jpg")) return "image/jpeg";
+  else if(filename.endsWith(".ico")) return "image/x-icon";
+  else if(filename.endsWith(".xml")) return "text/xml";
+  else if(filename.endsWith(".pdf")) return "application/x-pdf";
+  else if(filename.endsWith(".zip")) return "application/x-zip";
+  else if(filename.endsWith(".gz")) return "application/x-gzip";
+  return "text/plain";
 }
 
 void handleNotFound() {

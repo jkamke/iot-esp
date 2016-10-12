@@ -32,6 +32,7 @@
 extern "C" {
 #include "user_interface.h" 
 }
+#include <FS.h>
 ADC_MODE(ADC_VCC);
 
 //160bytest left in EEPROM(512)
@@ -41,7 +42,10 @@ char gateway[16] = "";
 char dns[16] = "";
 char mqtt_server[256] = "";
 
-const char *softAP_ssidFmt = "ESP_%2X";
+const char *id_Fmt = "%2X";
+char cid[64];
+
+const char *softAP_ssidFmt = "ESP_%s";
 char softAP_ssid[64];
 const char *softAP_password = "12345678";
 
@@ -52,9 +56,8 @@ IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
 ESP8266WebServer server(80);
-int id = ESP.getChipId();
 
-const char* sub = "demo.Outlet/state/+/%2X";
+const char* sub = "demo.Outlet/state/+/%s";
 const int BLUE_LED = 2;
 const int GREEN_LED = 13;
 const int BACK_OFF_MAX = 30;
@@ -68,6 +71,7 @@ char msg[50];
 int value = 0;
 int buttoned = 0;
 int BACK_OFF = 1;
+int id = ESP.getChipId();
 Ticker beeper;
 Ticker blinker;
 
@@ -81,17 +85,44 @@ long lastConnectTry = 0;
 /** Current WLAN status */
 int status = WL_IDLE_STATUS;
 
-void setup() {
-  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
-  Serial.begin(115200);
-  Serial.print("Configuring access point...");
+//format bytes
+String formatBytes(size_t bytes){
+  if (bytes < 1024){
+    return String(bytes)+"B";
+  } else if(bytes < (1024 * 1024)){
+    return String(bytes/1024.0)+"KB";
+  } else if(bytes < (1024 * 1024 * 1024)){
+    return String(bytes/1024.0/1024.0)+"MB";
+  } else {
+    return String(bytes/1024.0/1024.0/1024.0)+"GB";
+  }
+}
 
-  /* You can remove the password parameter if you want the AP to be open. */
-  sprintf(softAP_ssid,softAP_ssidFmt,id);
+void setup() {
+  Serial.begin(115200);
+  SPIFFS.begin();
+  {
+    Serial.println("Dump Files");
+    Dir dir = SPIFFS.openDir("/");
+    while (dir.next()) {    
+      String fileName = dir.fileName();
+      size_t fileSize = dir.fileSize();
+      Serial.printf("FS File: %s, size: %s\n", fileName.c_str(), formatBytes(fileSize).c_str());
+    }
+    Serial.print("\n");
+  }
+  SPIFFS.end();
+  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
+  
+  Serial.println("Configuring access point...");
+  Serial.println(id); 
+  sprintf(cid, id_Fmt, id);
+  sprintf(softAP_ssid, softAP_ssidFmt, cid);
+  Serial.printf("ESP id: %s\n", cid);
   WiFi.softAPConfig(apIP, apIP, netMsk);
+  /* You can remove the password parameter if you want the AP to be open. */
   WiFi.softAP(softAP_ssid, softAP_password);
   delay(500); // Without delay I've seen the IP address blank
-  Serial.printf("ESP id: %d\n",id);
   Serial.print("AP IP address: ");
   Serial.println(WiFi.softAPIP());
 
@@ -110,6 +141,7 @@ void setup_server() {
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/wifi", HTTP_GET, handleWifi);
+  server.on("/code", HTTP_GET, handleCode);
   server.on("/wifisave", HTTP_POST, handleWifiSave);
   server.on("/update", HTTP_POST, []() {
     server.sendHeader("Connection", "close");
@@ -139,13 +171,11 @@ void setup_server() {
     }
     yield();
   });
-  server.onNotFound ( handleNotFound );
+  server.onNotFound([](){
+    if(!handleFileRead(server.uri()))
+      handleNotFound();
+  });
   server.begin();
-
-  Serial.print("Ready! Open http://");
-  Serial.print(WiFi.localIP());
-  Serial.print(" in your browser\n");
-
 }
 void setup_wifi() {
   int i = 0;
@@ -174,8 +204,7 @@ void setup_wifi() {
   }
   connected = true;
   Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
+  Serial.print("WiFi connected!\n Open http://");
   Serial.println(WiFi.localIP());
   //MQTT setup
   client.setCallback(onClientMessage);
@@ -247,13 +276,13 @@ void blink_it () {
 // START APP CODE
 void onButtonPushed(){
   char json[255];
-  sprintf(json, "{\"agentData\": {\"_id\": \"%2X\"}, \"data\": {\"volts\": %d}}", id, ESP.getVcc());
+  sprintf(json, "{\"agentData\": {\"_id\": \"%s\"}, \"data\": {\"volts\": %d}}", cid, ESP.getVcc());
   client.publish("demo.Switch/flip", json);
 }
 
 void onClientConnect() {
   char subId[255];
-  sprintf(subId, sub, id);
+  sprintf(subId, sub, cid);
   client.subscribe(subId);
 }
 
